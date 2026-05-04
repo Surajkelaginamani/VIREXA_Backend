@@ -6,16 +6,24 @@ const cors = require('cors');
 const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
+const configuredFrontendOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...configuredFrontendOrigins,
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  'https://virexafrontend.vercel.app',
   'http://localhost:5173',
   'http://127.0.0.1:5173'
 ].filter(Boolean);
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    const isVercelPreview = /^https:\/\/virexafrontend.*\.vercel\.app$/.test(origin || '');
+
+    if (!origin || allowedOrigins.includes(origin) || isVercelPreview) {
       return callback(null, true);
     }
 
