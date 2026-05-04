@@ -83,6 +83,20 @@ app.post('/api/speak', async (req, res) => {
   const { text } = req.body;
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
   const apiKey = process.env.ELEVENLABS_API_KEY;
+
+  if (process.env.ENABLE_TTS === 'false') {
+    return res.status(503).json({
+      error: "Voice generation is disabled",
+      fallback: "browser"
+    });
+  }
+
+  if (!voiceId || !apiKey) {
+    return res.status(503).json({
+      error: "ElevenLabs is not configured",
+      fallback: "browser"
+    });
+  }
   
   try {
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -102,11 +116,19 @@ app.post('/api/speak', async (req, res) => {
       })
     });
 
-    // 🚨 THIS IS THE NEW DEBUGGING PART 🚨
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("ELEVENLABS REJECTED IT! Reason:", errorText);
-      return res.status(500).json({ error: "ElevenLabs API failed", details: errorText });
+      const errorBody = await response.json().catch(async () => ({
+        detail: await response.text()
+      }));
+      const status = errorBody.detail?.status || "unknown";
+
+      console.warn("ElevenLabs voice generation unavailable:", status);
+
+      return res.status(503).json({
+        error: "ElevenLabs voice generation unavailable",
+        providerStatus: status,
+        fallback: "browser"
+      });
     }
 
     const audioBuffer = await response.arrayBuffer();
